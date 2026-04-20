@@ -1,0 +1,21 @@
+# API keys & secrets
+.secrets/
+*.key
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Test reports (local only)
+*_审计报告.md
