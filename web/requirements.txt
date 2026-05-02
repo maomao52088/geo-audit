@@ -1,0 +1,2 @@
+# No dependencies — pure Python stdlib
+# Render uses this to detect Python project

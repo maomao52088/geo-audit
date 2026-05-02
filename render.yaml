@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: geo-audit
+    env: python
+    region: singapore
+    buildCommand: ""
+    startCommand: cd web && python3 app.py
+    envVars:
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    plan: free
