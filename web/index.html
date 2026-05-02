@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI推荐没你？免费查 — GEO Audit</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f0f0f; color: #e0e0e0; line-height: 1.6; min-height: 100vh; }
+  .container { max-width: 680px; margin: 0 auto; padding: 24px 20px; }
+  h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; color: #fff; }
+  .subtitle { color: #999; font-size: 16px; margin-bottom: 32px; }
+  .hero { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 32px 24px; margin-bottom: 32px; border: 1px solid #2a2a3e; }
+  .hero h2 { font-size: 20px; color: #fff; margin-bottom: 16px; }
+  .hero p { color: #aaa; margin-bottom: 12px; font-size: 15px; }
+  .scenario { display: flex; gap: 12px; margin-bottom: 16px; }
+  .scenario .old, .scenario .new { flex:1; padding: 16px; border-radius: 12px; font-size: 14px; }
+  .scenario .old { background: #2a1a1a; border: 1px solid #4a2a2a; color: #f88; }
+  .scenario .new { background: #1a2a1a; border: 1px solid #2a4a2a; color: #8f8; }
+  .scenario strong { display: block; margin-bottom: 6px; font-size: 15px; }
+  .form-group { margin-bottom: 20px; }
+  label { display: block; font-size: 14px; color: #aaa; margin-bottom: 6px; font-weight: 500; }
+  input, select { width: 100%; padding: 14px 16px; background: #1a1a1a; border: 1px solid #333; border-radius: 10px; color: #fff; font-size: 16px; transition: border-color .2s; }
+  input:focus, select:focus { outline: none; border-color: #6c5ce7; }
+  select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; }
+  .btn { width: 100%; padding: 16px; background: #6c5ce7; color: #fff; border: none; border-radius: 12px; font-size: 17px; font-weight: 600; cursor: pointer; transition: all .2s; }
+  .btn:hover { background: #7c6cf7; transform: translateY(-1px); }
+  .btn:disabled { background: #444; cursor: not-allowed; transform: none; }
+  .hint { font-size: 13px; color: #666; margin-top: 8px; text-align: center; }
+  .result { margin-top: 32px; display: none; }
+  .result.show { display: block; }
+  .score-card { text-align: center; padding: 32px 24px; border-radius: 16px; margin-bottom: 24px; }
+  .score-card.bad { background: linear-gradient(135deg, #2a1a1a, #3a1a1a); border: 1px solid #5a2a2a; }
+  .score-card.ok { background: linear-gradient(135deg, #1a2a1a, #1a3a1a); border: 1px solid #2a5a2a; }
+  .score-card.good { background: linear-gradient(135deg, #1a1a2a, #1a2a3a); border: 1px solid #2a3a5a); }
+  .big-score { font-size: 72px; font-weight: 800; line-height: 1; }
+  .score-label { font-size: 18px; margin-top: 8px; }
+  .insight { font-size: 16px; color: #ccc; margin-top: 16px; padding: 12px; background: rgba(255,255,255,.05); border-radius: 10px; }
+  .platforms { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 24px; }
+  .platform { padding: 12px; border-radius: 10px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .platform.found { background: #1a2a1a; border: 1px solid #2a4a2a; }
+  .platform.miss { background: #1a1a1a; border: 1px solid #2a2a2a; color: #666; }
+  .suggestions { background: #1a1a1a; border-radius: 12px; padding: 24px; border: 1px solid #2a2a2a; }
+  .suggestions h3 { font-size: 16px; color: #fff; margin-bottom: 12px; }
+  .suggestions li { color: #aaa; font-size: 14px; margin-bottom: 8px; padding-left: 8px; }
+  .loading { text-align: center; padding: 48px 0; display: none; }
+  .loading.show { display: block; }
+  .spinner { width: 40px; height: 40px; border: 3px solid #333; border-top-color: #6c5ce7; border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error { background: #2a1a1a; border: 1px solid #5a2a2a; padding: 16px; border-radius: 10px; color: #f88; display: none; }
+  .error.show { display: block; }
+  .footer { text-align: center; padding: 32px 0; color: #555; font-size: 13px; }
+  .footer a { color: #6c5ce7; text-decoration: none; }
+  @media (max-width: 480px) {
+    .scenario { flex-direction: column; }
+    .platforms { grid-template-columns: 1fr; }
+    h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>AI推荐没你？</h1>
+  <p class="subtitle">用户问豆包搜到了别人。免费查，30秒出结果。</p>
+
+  <div class="hero">
+    <h2>你是不是每天都在丢客？</h2>
+    <div class="scenario">
+      <div class="old">
+        <strong>以前</strong>
+        用户打开百度→搜"附近好吃的"→看排名→选一家
+      </div>
+      <div class="new">
+        <strong>现在</strong>
+        用户打开豆包→问"附近哪家好吃"→AI给5个店名→直接去了
+      </div>
+    </div>
+    <p>这5个店名里，有你吗？<br>如果没有 — 你丢的不是排名，是直接到店的客。</p>
+  </div>
+
+  <form id="auditForm">
+    <div class="form-group">
+      <label>品牌名 / 店名</label>
+      <input type="text" id="brand" placeholder="输入你的品牌或店名" required autofocus>
+    </div>
+    <div class="form-group">
+      <label>行业</label>
+      <select id="industry">
+        <option value="">选行业（可选）</option>
+        <option value="餐饮">餐饮</option>
+        <option value="教育">教育 / 培训</option>
+        <option value="电商">电商 / 品牌</option>
+        <option value="护肤">护肤 / 美妆</option>
+        <option value="本地服务">本地服务</option>
+        <option value="SaaS">工具 / SaaS</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>自定义搜索词（可选，逗号分隔）</label>
+      <input type="text" id="keywords" placeholder="比如：最好用的,推荐,排名">
+    </div>
+    <button type="submit" class="btn" id="submitBtn">免费查 — 30秒出结果</button>
+    <p class="hint">不用装任何东西 · 不用注册 · 完全免费</p>
+  </form>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p style="color:#999">正在检索 4 个 AI 搜索引擎，请稍候…</p>
+  </div>
+
+  <div class="error" id="error"></div>
+
+  <div class="result" id="result">
+    <div class="score-card" id="scoreCard"></div>
+    <div class="platforms" id="platforms"></div>
+    <div class="suggestions" id="suggestions"></div>
+  </div>
+
+  <div class="footer">
+    <p>GEO Audit · 开源免费 · <a href="https://github.com/maomao52088/geo-audit" target="_blank">GitHub</a></p>
+    <p style="margin-top:4px">合规审计，不投毒不造假</p>
+  </div>
+</div>
+
+<script>
+const API = '/api/audit';
+const PLATFORM_NAMES = {
+  doubao: '豆包', kimi: 'Kimi', deepseek: 'DeepSeek', qwen: '通义千问'
+};
+
+document.getElementById('auditForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const brand = document.getElementById('brand').value.trim();
+  if (!brand) return;
+
+  const submitBtn = document.getElementById('submitBtn');
+  const loading = document.getElementById('loading');
+  const error = document.getElementById('error');
+  const result = document.getElementById('result');
+
+  submitBtn.disabled = true;
+  loading.classList.add('show');
+  error.classList.remove('show');
+  result.classList.remove('show');
+
+  try {
+    const resp = await fetch(API, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        brand: brand,
+        industry: document.getElementById('industry').value,
+        keywords: document.getElementById('keywords').value
+      })
+    });
+    const data = await resp.json();
+
+    if (data.error) {
+      error.textContent = '出错了：' + data.error;
+      error.classList.add('show');
+      return;
+    }
+
+    renderResult(data);
+    result.classList.add('show');
+    result.scrollIntoView({ behavior: 'smooth' });
+
+  } catch (err) {
+    error.textContent = '请求失败，请稍后重试。' + err.message;
+    error.classList.add('show');
+  } finally {
+    submitBtn.disabled = false;
+    loading.classList.remove('show');
+  }
+});
+
+function renderResult(data) {
+  const vis = data.visibility || {};
+  const score = vis.overall_score || 0;
+  const mentioned = vis.mentioned_platforms || [];
+  const missing = vis.missing_platforms || [];
+  const dims = vis.dimensions || {};
+
+  // Score card
+  const card = document.getElementById('scoreCard');
+  let grade, emoji, cls;
+  if (score >= 50) { grade = '不错！AI认识你'; emoji = '👀'; cls = 'good'; }
+  else if (score > 0) { grade = '有点存在感，但不多'; emoji = '🤏'; cls = 'ok'; }
+  else { grade = 'AI根本不知道你是谁'; emoji = '😶‍🌫️'; cls = 'bad'; }
+
+  card.className = 'score-card ' + cls;
+  card.innerHTML = `
+    <div class="big-score" style="color:${score>=50?'#8f8':score>0?'#fa0':'#f66'}">${score}</div>
+    <div class="score-label">${emoji} ${grade}</div>
+    <div class="insight">
+      4个AI引擎中，<strong>${mentioned.length}个</strong>提到了你，<strong>${missing.length}个</strong>完全不知道你存在。
+      ${score === 0 ? '<br><br>每个在豆包/Kimi搜你行业的人，看到的推荐名单里都没有你。这就是丢客。' : ''}
+    </div>
+  `;
+
+  // Platforms
+  const platforms = document.getElementById('platforms');
+  platforms.innerHTML = Object.entries(PLATFORM_NAMES).map(([id, name]) => {
+    const found = mentioned.includes(id);
+    return `<div class="platform ${found ? 'found' : 'miss'}">
+      <span>${name}</span><span>${found ? '✅ 有推荐' : '— 无'}</span>
+    </div>`;
+  }).join('');
+
+  // Suggestions
+  const suggestions = document.getElementById('suggestions');
+  let tips = [];
+  if (missing.length > 0) {
+    tips.push(`在 <strong>${missing.map(p => PLATFORM_NAMES[p] || p).join('、')}</strong> 上完全搜不到你 — 这些平台的用户看不到你。`);
+  }
+  if (dims.mention_rate < 30) {
+    tips.push('你的品牌在网络内容中太少了，AI没有足够的信息来推荐你。');
+  }
+  if (dims.citation_depth < 20) {
+    tips.push('即便被提到，引用来源也很少 — 看起来不太可信。');
+  }
+  if (tips.length === 0) tips.push('目前表现不错，继续保持内容更新和口碑积累。');
+
+  suggestions.innerHTML = `
+    <h3>怎么办？</h3>
+    <ol>${tips.map(t => `<li>${t}</li>`).join('')}</ol>
+    <p style="margin-top:12px; color:#888; font-size:13px">
+      想深入优化？GitHub 开源工具可自助跑完整报告 → 
+      <a href="https://github.com/maomao52088/geo-audit" target="_blank" style="color:#6c5ce7">geo-audit</a>
+    </p>
+  `;
+}
+</script>
+</body>
+</html>

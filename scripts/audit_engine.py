@@ -17,6 +17,7 @@ import time
 import urllib.request
 import urllib.error
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
@@ -376,7 +377,7 @@ def run_audit(brand_name: str, keywords: list, language: str = "both",
     if not compliance["passed"]:
         return {"error": "合规预检未通过", "compliance": compliance}
 
-    # Step 2: 多引擎检索
+    # Step 2: 多引擎检索（并行）
     mentions = {}
     raw_results = {}
 
@@ -390,24 +391,36 @@ def run_audit(brand_name: str, keywords: list, language: str = "both",
         elif language == "en" and pinfo["lang"] == "en":
             target_platforms[pid] = pinfo
 
+    # 构建所有搜索任务
+    tasks = []
     for keyword in keywords:
         for platform_id, platform_info in target_platforms.items():
             query = platform_info["query_template"].format(keyword=keyword)
-            print(f"[检索] {platform_info['name']} → {query}")
+            tasks.append((platform_id, platform_info, keyword, query))
 
-            result = tavily_search(query, max_results=5, search_depth="advanced")
-            raw_results[f"{platform_id}:{keyword}"] = result
+    print(f"[并行] 共 {len(tasks)} 个搜索任务，并发执行中...")
 
-            # 分析引用
-            mention = CitationAnalyzer.analyze_mention(result, brand_name)
-            # 如果已找到，保持found=True；如果没找到，也记录
-            if platform_id not in mentions:
-                mentions[platform_id] = mention
-            elif not mentions[platform_id]["brand_found"] and mention["brand_found"]:
-                mentions[platform_id] = mention
+    def do_search(task):
+        platform_id, platform_info, keyword, query = task
+        result = tavily_search(query, max_results=5, search_depth="advanced")
+        mention = CitationAnalyzer.analyze_mention(result, brand_name)
+        return {
+            "platform_id": platform_id,
+            "keyword": keyword,
+            "query": query,
+            "result": result,
+            "mention": mention,
+        }
 
-            # 避免请求过快
-            time.sleep(1)
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        futures = {executor.submit(do_search, t): t for t in tasks}
+        for future in as_completed(futures):
+            r = future.result()
+            raw_results[f"{r['platform_id']}:{r['keyword']}"] = r["result"]
+            if r["platform_id"] not in mentions:
+                mentions[r["platform_id"]] = r["mention"]
+            elif not mentions[r["platform_id"]]["brand_found"] and r["mention"]["brand_found"]:
+                mentions[r["platform_id"]] = r["mention"]
 
     # Step 3: 计算可见度
     visibility = CitationAnalyzer.calculate_visibility(mentions, competitors)
