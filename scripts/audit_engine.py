@@ -26,7 +26,20 @@ from pathlib import Path
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 TAVILY_API_URL = "https://api.tavily.com/search"
 
+# OpenRouter统一路由 — 单Key管全部西方引擎
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+# OpenRouter模型映射 — engine_id → OpenRouter model name
+OPENROUTER_MODELS = {
+    "chatgpt":    "openai/gpt-4o-mini",
+    "perplexity": "perplexity/sonar",
+    "claude":     "anthropic/claude-haiku-4.5",
+    "gemini":     "google/gemini-2.5-flash-lite",
+}
+
 # AI搜索引擎映射 — 每个平台用不同的搜索query模板
+# mode: "tavily"(默认) / "openrouter"(直接AI引擎查询)
 AI_PLATFORMS = {
     # 中文平台
     "doubao": {
@@ -146,6 +159,100 @@ def tavily_search(query: str, max_results: int = 5, search_depth: str = "advance
         return {"error": f"HTTP {e.code}: {body}", "results": []}
     except Exception as e:
         return {"error": str(e), "results": []}
+
+
+# ========== OpenRouter统一路由 ==========
+
+def openrouter_query(engine_id: str, query_text: str, brand_name: str,
+                     api_key: str = None, base_url: str = None,
+                     timeout: int = 30) -> dict:
+    """通过OpenRouter统一接口查询AI引擎，检测品牌引用。
+
+    单Key路由到ChatGPT/Perplexity/Claude/Gemini，
+    返回统一的引用检测结果。
+
+    Args:
+        engine_id: 引擎ID (chatgpt/perplexity/claude/gemini)
+        query_text: 发送给AI的查询文本
+        brand_name: 要检测的品牌名
+        api_key: OpenRouter API Key (默认用环境变量)
+        base_url: OpenRouter端点 (默认 OPENROUTER_BASE_URL)
+        timeout: 超时秒数
+
+    Returns:
+        {"cited": bool, "text": str, "model": str, "error": str|None}
+    """
+    key = api_key or OPENROUTER_API_KEY
+    if not key:
+        return {"cited": False, "text": "", "model": "",
+                "error": "OPENROUTER_API_KEY not set"}
+
+    model = OPENROUTER_MODELS.get(engine_id)
+    if not model:
+        return {"cited": False, "text": "", "model": "",
+                "error": f"Unknown engine: {engine_id}"}
+
+    url = f"{(base_url or OPENROUTER_BASE_URL).rstrip('/')}/chat/completions"
+
+    system_prompt = (
+        "You are a knowledgeable assistant. When answering, "
+        "reference specific brands, products, and websites by name. "
+        "Be thorough and cite your sources."
+    )
+
+    payload = json.dumps({
+        "model": model,
+        "max_tokens": 600,
+        "temperature": 0.3,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": query_text},
+        ],
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+
+        text = result["choices"][0]["message"]["content"]
+        cited = brand_name.lower() in text.lower()
+
+        return {"cited": cited, "text": text, "model": model, "error": None}
+
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")[:300]
+        return {"cited": False, "text": "", "model": model,
+                "error": f"HTTP {e.code}: {body}"}
+    except Exception as e:
+        return {"cited": False, "text": "", "model": model,
+                "error": str(e)}
+
+
+def openrouter_batch_query(engine_ids: list, query_text: str, brand_name: str,
+                           api_key: str = None, max_workers: int = 4) -> dict:
+    """并行查询多个引擎，返回 {engine_id: result}"""
+    results = {}
+
+    def _query_one(eid):
+        return eid, openrouter_query(eid, query_text, brand_name, api_key)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(_query_one, eid): eid for eid in engine_ids}
+        for future in as_completed(futures):
+            eid, result = future.result()
+            results[eid] = result
+
+    return results
 
 
 # ========== 引用分析 ==========
@@ -364,13 +471,35 @@ class ReportGenerator:
 
 def run_audit(brand_name: str, keywords: list, language: str = "both",
               competitors: list = None, depth: str = "standard",
-              api_key: str = None) -> dict:
-    """执行完整审计流程"""
+              api_key: str = None, openrouter_key: str = None,
+              use_openrouter: bool = True) -> dict:
+    """执行完整审计流程
+
+    Args:
+        brand_name: 品牌名
+        keywords: 搜索关键词列表
+        language: 审计语言 (zh/en/both)
+        competitors: 竞品列表
+        depth: 审计深度
+        api_key: Tavily API Key
+        openrouter_key: OpenRouter API Key (单Key管全部西方引擎)
+        use_openrouter: 是否启用OpenRouter直查 (默认True)
+    """
 
     # 注入API key
-    global TAVILY_API_KEY
+    global TAVILY_API_KEY, OPENROUTER_API_KEY
     if api_key:
         TAVILY_API_KEY = api_key
+    if openrouter_key:
+        OPENROUTER_API_KEY = openrouter_key
+
+    # OpenRouter可覆盖的西方引擎
+    OR_CAPABLE = {"chatgpt", "perplexity", "claude", "gemini"}
+    or_available = bool(OPENROUTER_API_KEY) and use_openrouter
+
+    if or_available:
+        print(f"[OpenRouter] 已启用，西方引擎直查模式")
+        print(f"   模型: {', '.join([f'{k}→{v}' for k,v in OPENROUTER_MODELS.items()])}")
 
     # Step 1: 合规预检
     compliance = ComplianceChecker.check(brand_name, keywords)
@@ -396,23 +525,46 @@ def run_audit(brand_name: str, keywords: list, language: str = "both",
     for keyword in keywords:
         for platform_id, platform_info in target_platforms.items():
             query = platform_info["query_template"].format(keyword=keyword)
-            tasks.append((platform_id, platform_info, keyword, query))
+            # 标记是否用OpenRouter
+            use_or = or_available and platform_id in OR_CAPABLE
+            tasks.append((platform_id, platform_info, keyword, query, use_or))
 
     print(f"[并行] 共 {len(tasks)} 个搜索任务，并发执行中...")
 
     def do_search(task):
-        platform_id, platform_info, keyword, query = task
-        result = tavily_search(query, max_results=5, search_depth="advanced")
-        mention = CitationAnalyzer.analyze_mention(result, brand_name)
+        platform_id, platform_info, keyword, query, use_or = task
+
+        if use_or:
+            # === OpenRouter 直查模式 ===
+            result = openrouter_query(platform_id, query, brand_name)
+            # 转成统一mention格式
+            mention = {
+                "brand_found": result["cited"],
+                "position": None,
+                "sentiment": None,
+                "cited_urls": [],
+                "context_snippets": [result["text"][:500]] if result["text"] else [],
+                "competitors_found": [],
+                "method": "openrouter",
+                "model": result.get("model", ""),
+                "error": result.get("error"),
+            }
+            raw = {"method": "openrouter", "openrouter_result": result}
+        else:
+            # === Tavily 搜索模式 ===
+            result = tavily_search(query, max_results=5, search_depth="advanced")
+            mention = CitationAnalyzer.analyze_mention(result, brand_name)
+            raw = result
+
         return {
             "platform_id": platform_id,
             "keyword": keyword,
             "query": query,
-            "result": result,
+            "result": raw,
             "mention": mention,
         }
 
-    with ThreadPoolExecutor(max_workers=6) as executor:
+    with ThreadPoolExecutor(max_workers=8) as executor:
         futures = {executor.submit(do_search, t): t for t in tasks}
         for future in as_completed(futures):
             r = future.result()
@@ -479,6 +631,9 @@ def main():
     parser.add_argument("--lang", default="both", choices=["zh", "en", "both"], help="审计语言")
     parser.add_argument("--depth", default="standard", choices=["quick", "standard", "deep"], help="审计深度")
     parser.add_argument("--api-key", default=None, help="Tavily API Key")
+    parser.add_argument("--openrouter-key", default=None, help="OpenRouter API Key")
+    parser.add_argument("--no-openrouter", action="store_true",
+                        help="禁用OpenRouter，强制使用Tavily")
     parser.add_argument("--output", default=None, help="输出文件路径(.md)")
     parser.add_argument("--json", action="store_true", help="同时输出JSON数据")
 
@@ -501,6 +656,8 @@ def main():
         competitors=competitors,
         depth=args.depth,
         api_key=args.api_key,
+        openrouter_key=args.openrouter_key,
+        use_openrouter=not args.no_openrouter,
     )
 
     if "error" in result:
