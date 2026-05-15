@@ -36,11 +36,60 @@ INDUSTRY_KEYWORDS = {
     "SaaS": ["好用的工具推荐", "效率工具", "办公软件"],
 }
 
+# 免费快速检查 — 只搜4个引擎，无需行业/关键词
+QUICK_CHECK_ENGINES = ["doubao", "kimi", "chatgpt", "perplexity"]
+
 def get_keywords(industry, custom=None):
     base = INDUSTRY_KEYWORDS.get(industry, ["推荐", "哪个好", "口碑"])
     if custom:
         base = [k.strip() for k in custom.split(",") if k.strip()] + base
     return base[:4]
+
+def quick_search_brand(brand_name):
+    """免费一键检查：品牌名在4个主流引擎的可见性"""
+    results = {}
+    for engine_id in QUICK_CHECK_ENGINES:
+        platform = AI_PLATFORMS.get(engine_id, {})
+        query = f'"{brand_name}" 推荐'
+        try:
+            url = f"https://api.tavily.com/search"
+            data = json.dumps({
+                "query": query,
+                "search_depth": "basic",
+                "include_answer": False,
+                "max_results": 5,
+            }).encode()
+            req = urllib.request.Request(url, data=data, headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {TAVILY_KEY}"
+            })
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                raw = json.loads(resp.read())
+                results_list = raw.get("results", [])
+                found = any(brand_name.lower() in r.get("content", "").lower() for r in results_list)
+                results[engine_id] = {
+                    "name": platform.get("name", engine_id),
+                    "found": found,
+                }
+        except Exception as e:
+            results[engine_id] = {
+                "name": platform.get("name", engine_id),
+                "found": False,
+                "error": str(e)[:100],
+            }
+
+    found_count = sum(1 for r in results.values() if r.get("found"))
+    total = len(QUICK_CHECK_ENGINES)
+    score = int((found_count / total) * 100)
+
+    return {
+        "brand": brand_name,
+        "score": score,
+        "found_count": found_count,
+        "total_engines": total,
+        "engines": results,
+        "timestamp": datetime.now().isoformat(),
+    }
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -58,54 +107,81 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
-        if self.path == "/api/audit":
-            length = int(self.headers.get("Content-Length", 0))
-            body = json.loads(self.rfile.read(length))
-            brand = body.get("brand", "").strip()
-            industry = body.get("industry", "")
-            custom_kw = body.get("keywords", "")
-
-            if not brand:
-                self._json({"error": "请输入品牌名"}, 400)
-                return
-
-            keywords = get_keywords(industry, custom_kw)
-            cache_key = f"{brand}:{','.join(keywords)}"
-
-            with _cache_lock:
-                if cache_key in _cache:
-                    self._json(_cache[cache_key])
-                    return
-
-            try:
-                result = run_audit(
-                    brand_name=brand,
-                    keywords=keywords,
-                    language="zh",
-                    api_key=TAVILY_KEY,
-                )
-
-                # 精简返回（不传完整raw_results）
-                response = {
-                    "brand": brand,
-                    "keywords": keywords,
-                    "visibility": result.get("visibility", {}),
-                    "report": result.get("report_markdown", ""),
-                    "timestamp": datetime.now().isoformat(),
-                }
-
-                with _cache_lock:
-                    _cache[cache_key] = response
-
-                # 存历史
-                self._save_history(brand, response)
-                self._json(response)
-
-            except Exception as e:
-                self._json({"error": str(e)}, 500)
+        if self.path == "/api/quick-check":
+            self._handle_quick_check()
+        elif self.path == "/api/audit":
+            self._handle_full_audit()
         else:
             self.send_response(404)
             self.end_headers()
+
+    def _handle_quick_check(self):
+        """免费一键检查"""
+        length = int(self.headers.get("Content-Length", 0))
+        body = json.loads(self.rfile.read(length))
+        brand = body.get("brand", "").strip()
+
+        if not brand:
+            self._json({"error": "请输入品牌名"}, 400)
+            return
+
+        with _cache_lock:
+            cache_key = f"quick:{brand}"
+            if cache_key in _cache:
+                self._json(_cache[cache_key])
+                return
+
+        result = quick_search_brand(brand)
+
+        with _cache_lock:
+            _cache[cache_key] = result
+
+        self._json(result)
+
+    def _handle_full_audit(self):
+        """完整审计"""
+        length = int(self.headers.get("Content-Length", 0))
+        body = json.loads(self.rfile.read(length))
+        brand = body.get("brand", "").strip()
+        industry = body.get("industry", "")
+        custom_kw = body.get("keywords", "")
+
+        if not brand:
+            self._json({"error": "请输入品牌名"}, 400)
+            return
+
+        keywords = get_keywords(industry, custom_kw)
+        cache_key = f"{brand}:{','.join(keywords)}"
+
+        with _cache_lock:
+            if cache_key in _cache:
+                self._json(_cache[cache_key])
+                return
+
+        try:
+            result = run_audit(
+                brand_name=brand,
+                keywords=keywords,
+                language="zh",
+                api_key=TAVILY_KEY,
+            )
+
+            response = {
+                "brand": brand,
+                "keywords": keywords,
+                "visibility": result.get("visibility", {}),
+                "report": result.get("report_markdown", ""),
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            with _cache_lock:
+                _cache[cache_key] = response
+
+            self._save_history(brand, response)
+            self._json(response)
+
+        except Exception as e:
+            self._json({"error": str(e)}, 500)
 
     def _json(self, data, status=200):
         self.send_response(status)
@@ -124,7 +200,6 @@ class Handler(BaseHTTPRequestHandler):
                 "score": result["visibility"].get("overall_score", 0),
                 "timestamp": datetime.now().isoformat(),
             })
-            # 只保留最近100条
             history = history[-100:]
             HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
             HISTORY_FILE.write_text(json.dumps(history, ensure_ascii=False, indent=2))
@@ -143,7 +218,8 @@ def main():
     port = int(os.environ.get("PORT", 8899))
     server = HTTPServer(("0.0.0.0", port), Handler)
     print(f"\n🌐 GEO Audit 已启动: http://localhost:{port}")
-    print(f"   API: http://localhost:{port}/api/audit")
+    print(f"   快速检查: http://localhost:{port}/api/quick-check")
+    print(f"   完整审计: http://localhost:{port}/api/audit")
     print(f"   Ctrl+C 停止\n")
     try:
         server.serve_forever()

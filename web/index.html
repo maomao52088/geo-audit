@@ -3,22 +3,61 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI推荐没你？免费查 — GEO Audit</title>
+<title>你的品牌被AI推荐了吗？免费查 — GEO Audit</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: system-ui, -apple-system, sans-serif; background: #0f0f0f; color: #e0e0e0; line-height: 1.6; min-height: 100vh; }
   .container { max-width: 680px; margin: 0 auto; padding: 24px 20px; }
-  h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; color: #fff; }
-  .subtitle { color: #999; font-size: 16px; margin-bottom: 32px; }
-  .hero { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 32px 24px; margin-bottom: 32px; border: 1px solid #2a2a3e; }
-  .hero h2 { font-size: 20px; color: #fff; margin-bottom: 16px; }
-  .hero p { color: #aaa; margin-bottom: 12px; font-size: 15px; }
-  .scenario { display: flex; gap: 12px; margin-bottom: 16px; }
+
+  /* Hero */
+  .hero { text-align: center; padding: 32px 0 16px; }
+  .hero h1 { font-size: 30px; font-weight: 800; color: #fff; line-height: 1.3; }
+  .hero h1 span { color: #6c5ce7; }
+  .hero .subtitle { color: #888; font-size: 16px; margin-top: 8px; }
+
+  /* Scenario cards */
+  .scenario { display: flex; gap: 12px; margin: 24px 0; }
   .scenario .old, .scenario .new { flex:1; padding: 16px; border-radius: 12px; font-size: 14px; }
   .scenario .old { background: #2a1a1a; border: 1px solid #4a2a2a; color: #f88; }
   .scenario .new { background: #1a2a1a; border: 1px solid #2a4a2a; color: #8f8; }
   .scenario strong { display: block; margin-bottom: 6px; font-size: 15px; }
-  .form-group { margin-bottom: 20px; }
+
+  /* Free Quick Check */
+  .quick-check { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 28px 24px; margin-bottom: 24px; border: 1px solid #2a2a3e; text-align: center; }
+  .quick-check h2 { font-size: 20px; color: #fff; margin-bottom: 6px; }
+  .quick-check .qc-sub { color: #888; font-size: 14px; margin-bottom: 20px; }
+  .qc-input-row { display: flex; gap: 10px; max-width: 440px; margin: 0 auto; }
+  .qc-input { flex: 1; padding: 14px 16px; background: #1a1a1a; border: 1px solid #333; border-radius: 10px; color: #fff; font-size: 16px; }
+  .qc-input:focus { outline: none; border-color: #6c5ce7; }
+  .qc-btn { padding: 14px 24px; background: #6c5ce7; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all .2s; }
+  .qc-btn:hover { background: #7c6cf7; }
+  .qc-btn:disabled { background: #444; cursor: not-allowed; }
+  .qc-hint { font-size: 12px; color: #555; margin-top: 10px; }
+
+  /* Quick result */
+  .qc-result { margin-top: 20px; display: none; padding: 20px; border-radius: 12px; }
+  .qc-result.show { display: block; }
+  .qc-result.visible { background: #1a2a1a; border: 1px solid #2a4a2a; }
+  .qc-result.invisible { background: #2a1a1a; border: 1px solid #5a2a2a; }
+  .qc-score { font-size: 56px; font-weight: 800; line-height: 1; }
+  .qc-summary { font-size: 16px; margin: 12px 0; }
+  .qc-engines { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 12px 0; }
+  .qc-engine { padding: 6px 14px; border-radius: 20px; font-size: 13px; }
+  .qc-engine.found { background: #1a3a1a; color: #8f8; border: 1px solid #2a5a2a; }
+  .qc-engine.miss { background: #1a1a1a; color: #666; border: 1px solid #333; }
+
+  /* Upgrade CTA */
+  .upgrade-cta { margin-top: 16px; padding: 16px; background: linear-gradient(135deg, #2a1a3a, #1a2a3a); border-radius: 12px; border: 1px solid #4a2a6a; text-align: center; }
+  .upgrade-cta h3 { color: #fff; font-size: 16px; margin-bottom: 6px; }
+  .upgrade-cta p { color: #aaa; font-size: 13px; margin-bottom: 12px; }
+  .upgrade-cta .features { display: inline-flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-bottom: 12px; }
+  .upgrade-cta .feature { font-size: 12px; color: #999; }
+  .upgrade-cta .feature strong { color: #b9a; display: block; font-size: 14px; }
+
+  /* Full audit section */
+  .full-audit { margin-bottom: 24px; }
+  .full-audit h3 { font-size: 18px; color: #fff; margin-bottom: 16px; text-align: center; }
+  .form-group { margin-bottom: 16px; }
   label { display: block; font-size: 14px; color: #aaa; margin-bottom: 6px; font-weight: 500; }
   input, select { width: 100%; padding: 14px 16px; background: #1a1a1a; border: 1px solid #333; border-radius: 10px; color: #fff; font-size: 16px; transition: border-color .2s; }
   input:focus, select:focus { outline: none; border-color: #6c5ce7; }
@@ -26,13 +65,17 @@
   .btn { width: 100%; padding: 16px; background: #6c5ce7; color: #fff; border: none; border-radius: 12px; font-size: 17px; font-weight: 600; cursor: pointer; transition: all .2s; }
   .btn:hover { background: #7c6cf7; transform: translateY(-1px); }
   .btn:disabled { background: #444; cursor: not-allowed; transform: none; }
+  .btn-secondary { background: transparent; border: 1px solid #6c5ce7; color: #6c5ce7; }
+  .btn-secondary:hover { background: rgba(108,92,231,.1); }
   .hint { font-size: 13px; color: #666; margin-top: 8px; text-align: center; }
+
+  /* Full audit result */
   .result { margin-top: 32px; display: none; }
   .result.show { display: block; }
   .score-card { text-align: center; padding: 32px 24px; border-radius: 16px; margin-bottom: 24px; }
   .score-card.bad { background: linear-gradient(135deg, #2a1a1a, #3a1a1a); border: 1px solid #5a2a2a; }
   .score-card.ok { background: linear-gradient(135deg, #1a2a1a, #1a3a1a); border: 1px solid #2a5a2a; }
-  .score-card.good { background: linear-gradient(135deg, #1a1a2a, #1a2a3a); border: 1px solid #2a3a5a); }
+  .score-card.good { background: linear-gradient(135deg, #1a1a2a, #1a2a3a); border: 1px solid #2a3a5a; }
   .big-score { font-size: 72px; font-weight: 800; line-height: 1; }
   .score-label { font-size: 18px; margin-top: 8px; }
   .insight { font-size: 16px; color: #ccc; margin-top: 16px; padding: 12px; background: rgba(255,255,255,.05); border-radius: 10px; }
@@ -43,69 +86,95 @@
   .suggestions { background: #1a1a1a; border-radius: 12px; padding: 24px; border: 1px solid #2a2a2a; }
   .suggestions h3 { font-size: 16px; color: #fff; margin-bottom: 12px; }
   .suggestions li { color: #aaa; font-size: 14px; margin-bottom: 8px; padding-left: 8px; }
+
   .loading { text-align: center; padding: 48px 0; display: none; }
   .loading.show { display: block; }
   .spinner { width: 40px; height: 40px; border: 3px solid #333; border-top-color: #6c5ce7; border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 16px; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .error { background: #2a1a1a; border: 1px solid #5a2a2a; padding: 16px; border-radius: 10px; color: #f88; display: none; }
   .error.show { display: block; }
+
+  /* Divider */
+  .divider { text-align: center; padding: 24px 0; color: #444; font-size: 14px; }
+  .divider::before, .divider::after { content: ' ——— '; color: #333; }
+
   .footer { text-align: center; padding: 32px 0; color: #555; font-size: 13px; }
   .footer a { color: #6c5ce7; text-decoration: none; }
+
   @media (max-width: 480px) {
     .scenario { flex-direction: column; }
+    .qc-input-row { flex-direction: column; }
+    .qc-btn { width: 100%; }
     .platforms { grid-template-columns: 1fr; }
-    h1 { font-size: 24px; }
+    .hero h1 { font-size: 24px; }
   }
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>AI推荐没你？</h1>
-  <p class="subtitle">用户问豆包搜到了别人。免费查，30秒出结果。</p>
 
+  <!-- Hero -->
   <div class="hero">
-    <h2>你是不是每天都在丢客？</h2>
-    <div class="scenario">
-      <div class="old">
-        <strong>以前</strong>
-        用户打开百度→搜"附近好吃的"→看排名→选一家
-      </div>
-      <div class="new">
-        <strong>现在</strong>
-        用户打开豆包→问"附近哪家好吃"→AI给5个店名→直接去了
-      </div>
-    </div>
-    <p>这5个店名里，有你吗？<br>如果没有 — 你丢的不是排名，是直接到店的客。</p>
+    <h1>AI推荐没<span>你</span>？</h1>
+    <p class="subtitle">你的客户已经在用豆包、Kimi、ChatGPT做购买决策了。你的品牌在里面吗？</p>
   </div>
 
-  <form id="auditForm">
-    <div class="form-group">
-      <label>品牌名 / 店名</label>
-      <input type="text" id="brand" placeholder="输入你的品牌或店名" required autofocus>
+  <div class="scenario">
+    <div class="old">
+      <strong>以前</strong>
+      用户搜百度→看排名→选一家
     </div>
-    <div class="form-group">
-      <label>行业</label>
-      <select id="industry">
-        <option value="">选行业（可选）</option>
-        <option value="餐饮">餐饮</option>
-        <option value="教育">教育 / 培训</option>
-        <option value="电商">电商 / 品牌</option>
-        <option value="护肤">护肤 / 美妆</option>
-        <option value="本地服务">本地服务</option>
-        <option value="SaaS">工具 / SaaS</option>
-      </select>
+    <div class="new">
+      <strong>现在</strong>
+      用户问AI→AI给5个店名→直接去了
     </div>
-    <div class="form-group">
-      <label>自定义搜索词（可选，逗号分隔）</label>
-      <input type="text" id="keywords" placeholder="比如：最好用的,推荐,排名">
+  </div>
+
+  <!-- ========== 免费一键检查 ========== -->
+  <div class="quick-check" id="quickCheck">
+    <h2>🆓 免费查：你的品牌在AI搜索里存在吗？</h2>
+    <p class="qc-sub">输入品牌名，30秒看4大AI引擎的可见性。不用注册，不用付费。</p>
+    <div class="qc-input-row">
+      <input type="text" class="qc-input" id="qcBrand" placeholder="输入品牌名或店名" autofocus>
+      <button class="qc-btn" id="qcBtn" onclick="runQuickCheck()">免费查</button>
     </div>
-    <button type="submit" class="btn" id="submitBtn">免费查 — 30秒出结果</button>
-    <p class="hint">不用装任何东西 · 不用注册 · 完全免费</p>
-  </form>
+    <p class="qc-hint">— 对标 PromptScout，但我们覆盖中国市场引擎 —</p>
+    <div class="qc-result" id="qcResult"></div>
+  </div>
+
+  <div class="divider">升级：完整8引擎审计</div>
+
+  <!-- ========== 完整审计 ========== -->
+  <div class="full-audit">
+    <form id="auditForm" onsubmit="return false;">
+      <div class="form-group">
+        <label>品牌名 / 店名</label>
+        <input type="text" id="brand" placeholder="同上，或输入另一个品牌" required>
+      </div>
+      <div class="form-group">
+        <label>行业（可选）</label>
+        <select id="industry">
+          <option value="">选行业</option>
+          <option value="餐饮">餐饮</option>
+          <option value="教育">教育 / 培训</option>
+          <option value="电商">电商 / 品牌</option>
+          <option value="护肤">护肤 / 美妆</option>
+          <option value="本地服务">本地服务</option>
+          <option value="SaaS">工具 / SaaS</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>自定义搜索词（可选，逗号分隔）</label>
+        <input type="text" id="keywords" placeholder="比如：最好用的,推荐,排名">
+      </div>
+      <button type="submit" class="btn btn-secondary" id="submitBtn">完整审计 — 8引擎 + 竞品对比 + 优化建议</button>
+      <p class="hint">完整报告包含：所有平台详情 · 竞品对比 · 引用来源分析 · Content Brief</p>
+    </form>
+  </div>
 
   <div class="loading" id="loading">
     <div class="spinner"></div>
-    <p style="color:#999">正在检索 4 个 AI 搜索引擎，请稍候…</p>
+    <p style="color:#999">正在检索AI搜索引擎，请稍候…</p>
   </div>
 
   <div class="error" id="error"></div>
@@ -117,17 +186,92 @@
   </div>
 
   <div class="footer">
-    <p>GEO Audit · 开源免费 · <a href="https://github.com/maomao52088/geo-audit" target="_blank">GitHub</a></p>
-    <p style="margin-top:4px">合规审计，不投毒不造假</p>
+    <p>GEO Audit · <a href="https://github.com/maomao52088/geo-audit" target="_blank">GitHub</a> · <a href="https://www.producthunt.com" target="_blank">Product Hunt</a></p>
+    <p style="margin-top:4px">8大AI引擎覆盖 · 20分钟出报告 · 首发 $20</p>
   </div>
 </div>
 
 <script>
-const API = '/api/audit';
+const API_QUICK = '/api/quick-check';
+const API_FULL = '/api/audit';
 const PLATFORM_NAMES = {
-  doubao: '豆包', kimi: 'Kimi', deepseek: 'DeepSeek', qwen: '通义千问'
+  doubao: '豆包', kimi: 'Kimi', deepseek: 'DeepSeek', qwen: '通义千问',
+  chatgpt: 'ChatGPT', perplexity: 'Perplexity', gemini: 'Gemini', claude: 'Claude'
 };
 
+// ========== 免费快速检查 ==========
+async function runQuickCheck() {
+  const brand = document.getElementById('qcBrand').value.trim();
+  if (!brand) return;
+
+  const btn = document.getElementById('qcBtn');
+  const resultDiv = document.getElementById('qcResult');
+  btn.disabled = true;
+  btn.textContent = '检测中…';
+  resultDiv.classList.remove('show');
+
+  try {
+    const resp = await fetch(API_QUICK, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ brand })
+    });
+    const data = await resp.json();
+    if (data.error) { alert(data.error); return; }
+    renderQuickResult(data);
+    // 自动填入完整审计表单
+    document.getElementById('brand').value = brand;
+  } catch (err) {
+    alert('请求失败，请稍后重试');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '免费查';
+  }
+}
+
+function renderQuickResult(data) {
+  const div = document.getElementById('qcResult');
+  const found = data.found_count || 0;
+  const total = data.total_engines || 4;
+  const visible = found > 0;
+
+  div.className = 'qc-result show ' + (visible ? 'visible' : 'invisible');
+
+  let enginesHtml = '';
+  for (const [id, eng] of Object.entries(data.engines || {})) {
+    enginesHtml += `<span class="qc-engine ${eng.found ? 'found' : 'miss'}">${eng.name} ${eng.found ? '✅' : '—'}</span>`;
+  }
+
+  div.innerHTML = `
+    <div class="qc-score" style="color:${data.score>=50?'#8f8':data.score>0?'#fa0':'#f66'}">${data.score}</div>
+    <p style="color:#888;font-size:14px">AI可见性得分（满分100）</p>
+    <div class="qc-summary">
+      ${total} 个主流AI引擎中，<strong>${found} 个</strong>提到了你
+      ${found === 0 ? '<br><span style="color:#f66">你的品牌在AI搜索里完全不存在。</span>' : ''}
+    </div>
+    <div class="qc-engines">${enginesHtml}</div>
+    <div class="upgrade-cta">
+      <h3>🚀 想看到完整画像？</h3>
+      <p>上面只是4个引擎的快照。完整审计覆盖8大引擎 + 竞品对比 + 引用来源 + Content Brief。</p>
+      <div class="features">
+        <div class="feature"><strong>8引擎</strong>vs 4引擎</div>
+        <div class="feature"><strong>竞品对比</strong>谁在抢你的流量</div>
+        <div class="feature"><strong>Content Brief</strong>告诉你怎么修</div>
+        <div class="feature"><strong>$20</strong>一口价</div>
+      </div>
+      <button class="btn" onclick="document.getElementById('auditForm').scrollIntoView({behavior:'smooth'}); document.getElementById('brand').focus()" style="max-width:280px">
+        👇 下面开始完整审计
+      </button>
+    </div>
+  `;
+}
+
+// 回车触发快速检查
+document.getElementById('qcBrand').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') runQuickCheck();
+});
+
+// ========== 完整审计 ==========
 document.getElementById('auditForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const brand = document.getElementById('brand').value.trim();
@@ -144,7 +288,7 @@ document.getElementById('auditForm').addEventListener('submit', async (e) => {
   result.classList.remove('show');
 
   try {
-    const resp = await fetch(API, {
+    const resp = await fetch(API_FULL, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
@@ -161,12 +305,12 @@ document.getElementById('auditForm').addEventListener('submit', async (e) => {
       return;
     }
 
-    renderResult(data);
+    renderFullResult(data);
     result.classList.add('show');
     result.scrollIntoView({ behavior: 'smooth' });
 
   } catch (err) {
-    error.textContent = '请求失败，请稍后重试。' + err.message;
+    error.textContent = '请求失败，请稍后重试。';
     error.classList.add('show');
   } finally {
     submitBtn.disabled = false;
@@ -174,31 +318,29 @@ document.getElementById('auditForm').addEventListener('submit', async (e) => {
   }
 });
 
-function renderResult(data) {
+function renderFullResult(data) {
   const vis = data.visibility || {};
   const score = vis.overall_score || 0;
   const mentioned = vis.mentioned_platforms || [];
   const missing = vis.missing_platforms || [];
   const dims = vis.dimensions || {};
 
-  // Score card
   const card = document.getElementById('scoreCard');
-  let grade, emoji, cls;
-  if (score >= 50) { grade = '不错！AI认识你'; emoji = '👀'; cls = 'good'; }
-  else if (score > 0) { grade = '有点存在感，但不多'; emoji = '🤏'; cls = 'ok'; }
-  else { grade = 'AI根本不知道你是谁'; emoji = '😶‍🌫️'; cls = 'bad'; }
+  let grade, cls;
+  if (score >= 50) { grade = '不错！AI认识你'; cls = 'good'; }
+  else if (score > 0) { grade = '有点存在感，但不多'; cls = 'ok'; }
+  else { grade = 'AI根本不知道你是谁'; cls = 'bad'; }
 
   card.className = 'score-card ' + cls;
   card.innerHTML = `
     <div class="big-score" style="color:${score>=50?'#8f8':score>0?'#fa0':'#f66'}">${score}</div>
-    <div class="score-label">${emoji} ${grade}</div>
+    <div class="score-label">${grade}</div>
     <div class="insight">
-      4个AI引擎中，<strong>${mentioned.length}个</strong>提到了你，<strong>${missing.length}个</strong>完全不知道你存在。
-      ${score === 0 ? '<br><br>每个在豆包/Kimi搜你行业的人，看到的推荐名单里都没有你。这就是丢客。' : ''}
+      8个AI引擎中，<strong>${mentioned.length}个</strong>提到了你，<strong>${missing.length}个</strong>完全不知道你存在。
+      ${score === 0 ? '<br><br>每个在AI搜索里找你行业的用户，看到的推荐名单里都没有你。这就是丢客。' : ''}
     </div>
   `;
 
-  // Platforms
   const platforms = document.getElementById('platforms');
   platforms.innerHTML = Object.entries(PLATFORM_NAMES).map(([id, name]) => {
     const found = mentioned.includes(id);
@@ -207,26 +349,24 @@ function renderResult(data) {
     </div>`;
   }).join('');
 
-  // Suggestions
   const suggestions = document.getElementById('suggestions');
   let tips = [];
   if (missing.length > 0) {
     tips.push(`在 <strong>${missing.map(p => PLATFORM_NAMES[p] || p).join('、')}</strong> 上完全搜不到你 — 这些平台的用户看不到你。`);
   }
   if (dims.mention_rate < 30) {
-    tips.push('你的品牌在网络内容中太少了，AI没有足够的信息来推荐你。');
+    tips.push('你的品牌在网络内容中太少了，AI没有足够的信息来推荐你。增加品牌在高质量网站上的曝光。');
   }
   if (dims.citation_depth < 20) {
-    tips.push('即便被提到，引用来源也很少 — 看起来不太可信。');
+    tips.push('即便被提到，引用来源也很少 — 需要更多权威网站引用你的品牌。');
   }
   if (tips.length === 0) tips.push('目前表现不错，继续保持内容更新和口碑积累。');
 
   suggestions.innerHTML = `
-    <h3>怎么办？</h3>
+    <h3>📋 Content Brief — 怎么修？</h3>
     <ol>${tips.map(t => `<li>${t}</li>`).join('')}</ol>
-    <p style="margin-top:12px; color:#888; font-size:13px">
-      想深入优化？GitHub 开源工具可自助跑完整报告 → 
-      <a href="https://github.com/maomao52088/geo-audit" target="_blank" style="color:#6c5ce7">geo-audit</a>
+    <p style="margin-top:16px; padding-top:12px; border-top:1px solid #333; color:#888; font-size:13px">
+      💡 这是你今天的AI可见性快照。AI搜索的引用是动态的——持续监控才能知道趋势。
     </p>
   `;
 }
